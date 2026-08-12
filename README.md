@@ -1,6 +1,6 @@
-# UnrealClaude Sequencer Bridge
+# UnrealClaude Sequencer & World Bridge
 
-An unofficial Unreal Engine 5 editor-plugin derivative that extends [Natfii's UnrealClaude](https://github.com/Natfii/UnrealClaude) with careful, MCP-driven Sequencer authoring.
+An unofficial Unreal Engine 5 editor-plugin derivative that extends [Natfii's UnrealClaude](https://github.com/Natfii/UnrealClaude) with careful, MCP-driven Sequencer authoring and environment building.
 
 It is designed for project-local use: the AI can inspect the active sequence and make narrow, explicit edits without guessing which actor, rig, control, or asset you intended.
 
@@ -13,6 +13,11 @@ It is designed for project-local use: the AI can inspect the active sequence and
 - Add a Sound asset to the sequence master audio track.
 - Inspect Control Rig tracks and list their exact named controls.
 - Write a transform key to one selected Control Rig control at one selected frame.
+- Inspect a Static Mesh before using it as a modular kit piece.
+- Place an explicitly selected Static Mesh as a real `StaticMeshActor`.
+- Build a simple modular room shell from a selected wall piece and explicit dimensions.
+- Scatter deterministic foliage through an existing Foliage Type without changing its materials, collision, shadows, or culling settings.
+- Inspect landscape actors, their bounds, transforms, and assigned materials.
 
 The Control Rig operation requires the caller to inspect the sequence first and to send an exact rig index and control name. It preserves transform channels that are not supplied instead of silently resetting them.
 
@@ -21,6 +26,8 @@ The Control Rig operation requires the caller to inspect the sequence first and 
 - The bridge only operates while Unreal Editor is running and connected locally.
 - Sequencer actions require explicit asset paths, binding IDs, actor names, rig indices, or control names.
 - It does not launch renders, modify engine files, disable security, or make system-wide changes.
+- It does not sculpt or paint a Landscape automatically. Those edits need an explicit target landscape, edit layer, brush bounds, strength, and falloff before they are safe to automate.
+- It does not infer a whole level's art direction or an arbitrary modular kit's pivot/orientation. Inspect one module, test one placement, then create the shell or placement batch.
 - Build output, local Node dependencies, logs, and secrets are intentionally excluded from version control.
 
 ## Installation
@@ -40,6 +47,15 @@ This edition has been compile-validated with Unreal Engine 5.7 on Windows. Runti
 3. Select the exact `control_rig_index` and `control_name` returned by inspection.
 4. Call `set_control_rig_transform_key` with only the channels you want to change and an exact frame.
 5. Save/test the sequence in Unreal before continuing to the next shot.
+
+## Quick world-building workflow
+
+1. Search the project for the actual wall, prop, or foliage assets you want to use.
+2. Call `world_builder` with `operation: inspect_static_mesh` to read the module's local dimensions and Nanite state.
+3. Place one test piece with `place_static_mesh`; verify its forward axis and pivot in the level.
+4. Use `build_room_shell` only after that test succeeds. It treats local X as the module length and leaves doors, windows, corners, roofs, and dressing as intentional choices.
+5. Use `scatter_foliage` with an existing `FoliageType` and a seed. The same seed reproduces the exact scatter if you need to revise it.
+6. Use `inspect_landscapes` to select the intended terrain before any future landscape tool is added.
 
 ## Licensing and attribution
 

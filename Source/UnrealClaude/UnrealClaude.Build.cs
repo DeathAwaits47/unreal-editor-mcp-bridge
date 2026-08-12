@@ -67,6 +67,8 @@ public class UnrealClaude : ModuleRules
 				"SequencerScripting",
 				"ControlRig",
 				"ControlRigEditor",
+				"Foliage",
+				"Landscape",
 				// Enhanced Input
 				"EnhancedInput"
 			}
