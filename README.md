@@ -20,6 +20,9 @@ It is designed for project-local use: the AI can inspect the active sequence and
 - Build a simple modular room shell from a selected wall piece and explicit dimensions.
 - Scatter deterministic foliage through an existing Foliage Type without changing its materials, collision, shadows, or culling settings.
 - Inspect landscape actors, their bounds, transforms, and assigned materials.
+- Audit an active level for instance counts, estimated mesh triangles, shadow casters, movable lights, Nanite use, material references, and repeated high-cost meshes.
+- Audit a material's render mode and shader-risk patterns, including two-sided rendering, translucency, texture samples, scene textures, custom nodes, WPO-related world-position nodes, and runtime virtual textures.
+- Start/stop deliberate `stat unit`, `stat gpu`, `stat rhi`, and Unreal Insights traces while the user profiles in PIE or a packaged build.
 
 The Control Rig operation requires the caller to inspect the sequence first and to send an exact rig index and control name. It preserves transform channels that are not supplied instead of silently resetting them.
 
@@ -58,6 +61,15 @@ This edition has been compile-validated with Unreal Engine 5.7 on Windows. Runti
 4. Use `build_room_shell` only after that test succeeds. It treats local X as the module length and leaves doors, windows, corners, roofs, and dressing as intentional choices.
 5. Use `scatter_foliage` with an existing `FoliageType` and a seed. The same seed reproduces the exact scatter if you need to revise it.
 6. Use `inspect_landscapes` to select the intended terrain before any future landscape tool is added.
+
+## Performance and material workflow (UE 5.7)
+
+1. Call `performance` with `operation: "scene_audit"` while the intended level is open. Start with the returned top meshes, shadow-caster count, movable lights, and instancing data; do not mass-disable shadows without checking the gameplay camera.
+2. Call `performance` with `operation: "material_audit"` and an explicit material path (for example `/Game/Materials/M_Forest.M_Forest`). Treat its results as a shortlist for the Material Editor's **Stats** and **Shader Complexity** views.
+3. Start PIE or a packaged build and call `runtime_profile_command` with `stat_unit` and then `stat_gpu`. Those timings—not editor triangle counts—decide what needs optimizing.
+4. For a deeper capture, call `start_trace`, play through the expensive area, then call `stop_trace` and inspect the trace in Unreal Insights.
+
+The audit is intentionally diagnostic. It will not alter scalability settings, shaders, Nanite, shadows, materials, or foliage automatically. That keeps optimization choices reviewable and prevents an AI from "fixing" frame time by silently damaging the game's look.
 
 ## Licensing and attribution
 

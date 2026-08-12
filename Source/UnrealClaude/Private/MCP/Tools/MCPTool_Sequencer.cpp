@@ -302,17 +302,17 @@ FMCPToolResult FMCPTool_Sequencer::ExecuteAddAudioClip(const TSharedRef<FJsonObj
 	}
 
 	UMovieScene* MovieScene = Sequence->GetMovieScene();
-	UMovieSceneAudioTrack* Track = MovieScene->FindMasterTrack<UMovieSceneAudioTrack>();
+	UMovieSceneAudioTrack* Track = MovieScene->FindTrack<UMovieSceneAudioTrack>();
 	if (!Track)
 	{
-		Track = MovieScene->AddMasterTrack<UMovieSceneAudioTrack>();
+		Track = MovieScene->AddTrack<UMovieSceneAudioTrack>();
 	}
 	if (!Track)
 	{
 		return FMCPToolResult::Error(TEXT("Could not create a master Audio track"));
 	}
 
-	Track->AddNewSound(FFrameNumber(ExtractOptionalNumber<int32>(Params, TEXT("frame"), 0)), Sound);
+	Track->AddNewSound(Sound, FFrameNumber(ExtractOptionalNumber<int32>(Params, TEXT("frame"), 0)));
 	SaveSequence(Sequence);
 	return FMCPToolResult::Success(TEXT("Added audio clip to Level Sequence"));
 }

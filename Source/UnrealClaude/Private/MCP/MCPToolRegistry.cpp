@@ -31,6 +31,7 @@
 #include "Tools/MCPTool_OpenLevel.h"
 #include "Tools/MCPTool_Sequencer.h"
 #include "Tools/MCPTool_WorldBuilder.h"
+#include "Tools/MCPTool_Performance.h"
 
 #include "Tools/MCPTool_TaskSubmit.h"
 #include "Tools/MCPTool_TaskStatus.h"
@@ -102,6 +103,7 @@ void FMCPToolRegistry::RegisterBuiltinTools()
 	RegisterTool(MakeShared<FMCPTool_OpenLevel>());
 	RegisterTool(MakeShared<FMCPTool_Sequencer>());
 	RegisterTool(MakeShared<FMCPTool_WorldBuilder>());
+	RegisterTool(MakeShared<FMCPTool_Performance>());
 
 	// Task queue takes a raw pointer since the registry always outlives it
 	TaskQueue = MakeShared<FMCPTaskQueue>(this);

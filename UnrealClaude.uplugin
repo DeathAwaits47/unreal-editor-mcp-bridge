@@ -2,14 +2,14 @@
 	"FileVersion": 3,
 	"Version": 13,
 	"VersionName": "1.5.1",
-	"FriendlyName": "Unreal Claude",
-	"Description": "Claude Code CLI integration for Unreal Engine 5.7. Get AI coding assistance with built-in UE5.7 documentation context directly in the editor.",
+	"FriendlyName": "Unreal Editor MCP Bridge",
+	"Description": "A local, MCP-compatible Unreal Engine 5.7 editor bridge for AI clients. Includes careful Sequencer, world-building, performance, and material-audit tooling.",
 	"Category": "Editor",
 	"CreatedBy": "Natali Caggiano",
 	"CreatedByURL": "https://github.com/Natfii",
-	"DocsURL": "https://github.com/Natfii/UnrealClaude",
+	"DocsURL": "https://github.com/DeathAwaits47/unreal-editor-mcp-bridge",
 	"MarketplaceURL": "",
-	"SupportURL": "https://github.com/Natfii/UnrealClaude/issues",
+	"SupportURL": "https://github.com/DeathAwaits47/unreal-editor-mcp-bridge/issues",
 	"EngineVersion": "5.7.0",
 	"CanContainContent": false,
 	"Installed": true,
@@ -39,6 +39,16 @@
 		{
 			"Name": "EnhancedInput",
 			"Enabled": true
+		},
+		{
+			"Name": "SequencerScripting",
+			"Enabled": true,
+			"Optional": true
+		},
+		{
+			"Name": "ControlRig",
+			"Enabled": true,
+			"Optional": true
 		}
 	]
 }

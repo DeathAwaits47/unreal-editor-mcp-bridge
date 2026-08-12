@@ -35,6 +35,9 @@ public class UnrealClaude : ModuleRules
 				"WorkspaceMenuStructure"
 			}
 		);
+
+		// Public UE types used by the editor-side world builder.
+		PublicDependencyModuleNames.Add("Foliage");
 			
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
@@ -64,10 +67,10 @@ public class UnrealClaude : ModuleRules
 				"LevelSequence",
 				"MovieScene",
 				"MovieSceneTracks",
+				"MovieSceneTools",
 				"SequencerScripting",
 				"ControlRig",
 				"ControlRigEditor",
-				"Foliage",
 				"Landscape",
 				// Enhanced Input
 				"EnhancedInput"

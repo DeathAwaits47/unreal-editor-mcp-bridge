@@ -246,10 +246,24 @@ FMCPToolResult FMCPTool_WorldBuilder::ExecuteScatterFoliage(const TSharedRef<FJs
 	}
 
 	const FScopedTransaction Transaction(NSLOCTEXT("UnrealClaude", "ScatterFoliage", "MCP Scatter Foliage"));
-	AInstancedFoliageActor::AddInstances(World, FoliageType, Transforms);
+	// AddInstances is BlueprintCallable in UE 5.7, but its native symbol is not
+	// exported for editor plugins. Invoke the reflected engine function instead.
+	UFunction* AddInstancesFunction = AInstancedFoliageActor::StaticClass()->FindFunctionByName(TEXT("AddInstances"));
+	if (!AddInstancesFunction)
+	{
+		return FMCPToolResult::Error(TEXT("UE 5.7 did not expose AInstancedFoliageActor.AddInstances."));
+	}
+	struct FAddInstancesParams
+	{
+		UObject* WorldContextObject;
+		UFoliageType* InFoliageType;
+		TArray<FTransform> InTransforms;
+	};
+	FAddInstancesParams CallParams{ World, FoliageType, MoveTemp(Transforms) };
+	AInstancedFoliageActor::StaticClass()->GetDefaultObject()->ProcessEvent(AddInstancesFunction, &CallParams);
 	MarkWorldDirty(World);
 	TSharedPtr<FJsonObject> Data = MakeShared<FJsonObject>();
-	Data->SetNumberField(TEXT("instances_added"), Transforms.Num());
+	Data->SetNumberField(TEXT("instances_added"), CallParams.InTransforms.Num());
 	Data->SetNumberField(TEXT("seed"), Seed);
 	Data->SetObjectField(TEXT("area_center"), UnrealClaudeJsonUtils::VectorToJson(Center));
 	Data->SetObjectField(TEXT("area_size_cm"), UnrealClaudeJsonUtils::VectorToJson(Area));
