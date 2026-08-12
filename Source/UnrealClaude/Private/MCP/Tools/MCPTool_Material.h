@@ -7,6 +7,9 @@
 #include "Dom/JsonObject.h"
 #include "Dom/JsonValue.h"
 
+class UMaterial;
+class UMaterialExpression;
+
 /**
  * MCP Tool for material operations.
  *
@@ -34,6 +37,18 @@ private:
 	FMCPToolResult ExecuteSetSkeletalMeshMaterial(const TSharedRef<FJsonObject>& Params);
 	FMCPToolResult ExecuteSetActorMaterial(const TSharedRef<FJsonObject>& Params);
 	FMCPToolResult ExecuteGetMaterialInfo(const TSharedRef<FJsonObject>& Params);
+
+	// ===== Material graph (node) editing =====
+	FMCPToolResult ExecuteCreateMaterial(const TSharedRef<FJsonObject>& Params);
+	FMCPToolResult ExecuteListNodes(const TSharedRef<FJsonObject>& Params);
+	FMCPToolResult ExecuteAddNode(const TSharedRef<FJsonObject>& Params);
+	FMCPToolResult ExecuteSetNodeValue(const TSharedRef<FJsonObject>& Params);
+	FMCPToolResult ExecuteConnectNodes(const TSharedRef<FJsonObject>& Params);
+	FMCPToolResult ExecuteConnectProperty(const TSharedRef<FJsonObject>& Params);
+	FMCPToolResult ExecuteRecompileMaterial(const TSharedRef<FJsonObject>& Params);
+
+	/** Find an expression in a material by its MaterialExpressionGuid (preferred) or object name. */
+	class UMaterialExpression* FindExpression(class UMaterial* Material, const FString& NodeId) const;
 
 	bool SetScalarParameter(class UMaterialInstanceConstant* MatInst, const FString& ParamName, float Value, FString& OutError);
 	bool SetVectorParameter(class UMaterialInstanceConstant* MatInst, const FString& ParamName, const FLinearColor& Value, FString& OutError);

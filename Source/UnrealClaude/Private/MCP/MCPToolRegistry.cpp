@@ -27,6 +27,7 @@
 #include "Tools/MCPTool_Character.h"
 #include "Tools/MCPTool_CharacterData.h"
 #include "Tools/MCPTool_Material.h"
+#include "Tools/MCPTool_Widget.h"
 #include "Tools/MCPTool_Asset.h"
 #include "Tools/MCPTool_OpenLevel.h"
 #include "Tools/MCPTool_Sequencer.h"
@@ -99,6 +100,7 @@ void FMCPToolRegistry::RegisterBuiltinTools()
 	RegisterTool(MakeShared<FMCPTool_CharacterData>());
 
 	RegisterTool(MakeShared<FMCPTool_Material>());
+	RegisterTool(MakeShared<FMCPTool_Widget>());
 	RegisterTool(MakeShared<FMCPTool_Asset>());
 
 	RegisterTool(MakeShared<FMCPTool_OpenLevel>());

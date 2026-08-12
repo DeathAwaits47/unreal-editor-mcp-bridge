@@ -61,6 +61,11 @@ public class UnrealClaude : ModuleRules
 				// Animation Blueprint manipulation
 				"AnimGraph",
 				"AnimGraphRuntime",
+				// UMG widget-blueprint (designer) editing
+				"UMG",
+				"UMGEditor",
+				// Material graph/node editing
+				"MaterialEditor",
 				// Asset saving
 				"EditorScriptingUtilities",
 				// Sequencer automation

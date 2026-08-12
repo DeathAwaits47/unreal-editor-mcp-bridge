@@ -382,7 +382,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       return {
         content: [{
           type: "text",
-          text: `Error: Unknown domain "${domain}". Valid domains: blueprint, anim, character, enhanced_input, material, asset, sequencer, world, performance, narrative`,
+          text: `Error: Unknown domain "${domain}". Valid domains: blueprint, anim, character, enhanced_input, material, widget, asset, sequencer, world, performance, narrative`,
         }],
         isError: true,
       };

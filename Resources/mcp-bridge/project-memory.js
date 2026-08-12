@@ -116,7 +116,7 @@ export function compactProjectMemory(status) {
 
 export function recordToolActivity(status, toolName, args, result) {
   if (!result?.success || toolName === "project_memory") return;
-  const mutations = new Set(["spawn_actor", "move_actor", "delete_actors", "set_property", "open_level", "blueprint_modify", "anim_blueprint_modify", "character", "enhanced_input", "material", "asset", "sequencer", "world_builder", "performance", "narrative_trigger"]);
+  const mutations = new Set(["spawn_actor", "move_actor", "delete_actors", "set_property", "open_level", "blueprint_modify", "anim_blueprint_modify", "character", "enhanced_input", "material", "widget", "asset", "sequencer", "world_builder", "performance", "narrative_trigger"]);
   if (!mutations.has(toolName)) return;
   const operation = sanitize(args?.operation || args?.action || "change", 80);
   appendProjectNote(status, `${toolName} · ${operation}`, "Bridge activity");

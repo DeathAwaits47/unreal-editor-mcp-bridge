@@ -185,12 +185,13 @@ describe("classification sets", () => {
   });
 
   it("DOMAIN_TOOL_MAP has all supported editor domains with correct values", () => {
-    expect(Object.keys(DOMAIN_TOOL_MAP)).toHaveLength(10);
+    expect(Object.keys(DOMAIN_TOOL_MAP)).toHaveLength(11);
     expect(DOMAIN_TOOL_MAP.blueprint).toBe("blueprint_modify");
     expect(DOMAIN_TOOL_MAP.anim).toBe("anim_blueprint_modify");
     expect(DOMAIN_TOOL_MAP.character).toBe("character");
     expect(DOMAIN_TOOL_MAP.enhanced_input).toBe("enhanced_input");
     expect(DOMAIN_TOOL_MAP.material).toBe("material");
+    expect(DOMAIN_TOOL_MAP.widget).toBe("widget");
     expect(DOMAIN_TOOL_MAP.asset).toBe("asset");
     expect(DOMAIN_TOOL_MAP.sequencer).toBe("sequencer");
     expect(DOMAIN_TOOL_MAP.world).toBe("world_builder");
