@@ -10,7 +10,8 @@
  *   UNREAL_MCP_URL - Base URL for Unreal MCP server (default: http://localhost:3000)
  *   MCP_REQUEST_TIMEOUT_MS - HTTP request timeout in milliseconds (default: 30000)
  *   INJECT_CONTEXT - Enable automatic context injection on tool calls (default: false)
- *   MCP_TOOL_CACHE_TTL_MS - TTL for tool list cache in milliseconds (default: 30000)
+ *   MCP_TOOL_CACHE_TTL_MS - TTL for tool list cache in milliseconds (default: 300000)
+ *   MCP_MAX_RESPONSE_CHARS - Bound ordinary text tool output (default: 12000; 0 disables)
  */
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
@@ -53,7 +54,17 @@ import {
   resolveUnrealTool,
   categorizeToolForStatus,
   ROUTER_TOOL_SCHEMA,
+  COMPACT_ROUTER_TOOL_SCHEMA,
 } from "./tool-router.js";
+import {
+  getProjectMemory,
+  appendProjectNote,
+  setProjectSummary,
+  compactProjectMemory,
+  recordToolActivity,
+  registerAgent,
+  getAgentStatus,
+} from "./project-memory.js";
 
 // Configuration with defaults
 const CONFIG = {
@@ -63,15 +74,28 @@ const CONFIG = {
   asyncEnabled: process.env.MCP_ASYNC_ENABLED !== "false",
   asyncTimeoutMs: parseInt(process.env.MCP_ASYNC_TIMEOUT_MS, 10) || 300000,
   pollIntervalMs: parseInt(process.env.MCP_POLL_INTERVAL_MS, 10) || 2000,
-  toolCacheTtlMs: parseInt(process.env.MCP_TOOL_CACHE_TTL_MS, 10) || 30000,
+  toolCacheTtlMs: parseInt(process.env.MCP_TOOL_CACHE_TTL_MS, 10) || 300000,
+  maxResponseChars: parseInt(process.env.MCP_MAX_RESPONSE_CHARS, 10) || 12000,
+  // compact keeps the schema surface small. Set balanced only for clients that need all direct tools.
+  toolProfile: (process.env.UNREAL_MCP_TOOL_PROFILE || "compact").toLowerCase(),
 };
 
 // Bind CONFIG values to library functions for convenience
 const fetchUnrealTools = () => _fetchUnrealTools(CONFIG.unrealMcpUrl, CONFIG.requestTimeoutMs);
 const executeUnrealTool = (toolName, args) => _executeUnrealTool(CONFIG.unrealMcpUrl, CONFIG.requestTimeoutMs, toolName, args);
 const checkUnrealConnection = () => _checkUnrealConnection(CONFIG.unrealMcpUrl, CONFIG.requestTimeoutMs);
-const formatToolResponse = (toolName, result) =>
-  _formatToolResponse(toolName, result, CONFIG.injectContext ? getContextForTool : null);
+const formatToolResponse = (toolName, result) => {
+  const response = _formatToolResponse(toolName, result, CONFIG.injectContext ? getContextForTool : null);
+  // Large raw asset/actor lists are the biggest avoidable context drain. Keep image
+  // payloads intact, but bound text responses; the client can always run a narrower query.
+  if (process.env.MCP_MAX_RESPONSE_CHARS === "0") return response;
+  for (const block of response.content || []) {
+    if (block.type === "text" && typeof block.text === "string" && block.text.length > CONFIG.maxResponseChars) {
+      block.text = `${block.text.slice(0, CONFIG.maxResponseChars)}\n\n[Output truncated to preserve context. Run a narrower query for the remaining details.]`;
+    }
+  }
+  return response;
+};
 
 // Create the MCP server
 const server = new Server(
@@ -88,10 +112,43 @@ const server = new Server(
 
 // Cache for tools with TTL (avoids re-fetching the full tool list on every list_tools call)
 let toolCache = { tools: [], timestamp: 0 };
+let statusCache = { value: null, timestamp: 0 };
+const STATUS_CACHE_TTL_MS = 60000;
+
+async function getConnectionStatus() {
+  const age = Date.now() - statusCache.timestamp;
+  if (statusCache.value && age < STATUS_CACHE_TTL_MS) return statusCache.value;
+  const status = await checkUnrealConnection();
+  statusCache = { value: status, timestamp: Date.now() };
+  return status;
+}
+
+function isToolExposed(toolName) {
+  if (CONFIG.toolProfile === "balanced") return classifyTool(toolName) === "simple";
+  return new Set(["capture_viewport", "asset_search", "get_output_log"]).has(toolName);
+}
+
+const PROJECT_MEMORY_SCHEMA = {
+  name: "unreal_project_memory",
+  description: "Shared, compact project handoff for every AI using this bridge. Read this before broad project exploration. Actions: read, note, set_summary, compact, register_agent, agent_status. It stores decisions and recent bridge activity, not full chat history.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      action: { type: "string", enum: ["read", "note", "set_summary", "compact", "register_agent", "agent_status"], description: "read is the default. Use set_summary only for a short, durable milestone handoff." },
+      text: { type: "string", description: "Required for note and set_summary." },
+      max_chars: { type: "number", description: "Maximum characters returned by read (default 6000; max 12000)." },
+      client: { type: "string", description: "For register_agent, e.g. Codex or Claude Code." },
+      model: { type: "string", description: "For register_agent. Only report a model name the client actually knows." },
+      usage_remaining: { type: "string", description: "Optional. Only report it if the client exposes it; otherwise omit." },
+      note: { type: "string", description: "Optional status note for register_agent." },
+    },
+  },
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+};
 
 // Handle list_tools request
 server.setRequestHandler(ListToolsRequestSchema, async () => {
-  const status = await checkUnrealConnection();
+  const status = await getConnectionStatus();
 
   if (!status.connected) {
     log.info("Unreal not connected", { reason: status.reason });
@@ -134,9 +191,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     },
   });
 
-  // 2. Simple tools only (mega and hidden filtered out)
+  // 2. Direct tools. Compact mode intentionally exposes only frequent read/debug tools.
   for (const tool of toolCache.tools) {
-    if (classifyTool(tool.name) === "simple") {
+    if (isToolExposed(tool.name)) {
       mcpTools.push({
         name: `unreal_${tool.name}`,
         description: tool.description,
@@ -146,8 +203,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     }
   }
 
-  // 3. Router tool (static schema for all mega-tools)
-  mcpTools.push(ROUTER_TOOL_SCHEMA);
+  // 3. Router tool. The compact profile avoids repeating a giant operation catalogue in every client context.
+  mcpTools.push(CONFIG.toolProfile === "balanced" ? ROUTER_TOOL_SCHEMA : COMPACT_ROUTER_TOOL_SCHEMA);
 
   // 4. Context tool (section-aware)
   mcpTools.push({
@@ -191,29 +248,43 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     },
   });
 
-  // 5. Project context tool (on-demand, replaces always-on system prompt dump)
-  mcpTools.push({
-    name: "unreal_get_project_context",
-    description: "Get full project context: C++ class list, source structure, level actors, asset counts. Call when you need project-specific details.",
-    inputSchema: {
-      type: "object",
-      properties: {},
-    },
-    annotations: {
-      readOnlyHint: true,
-      destructiveHint: false,
-      idempotentHint: true,
-      openWorldHint: false,
-    },
-  });
+  // 5. Shared handoff is the normal, compact way to restore project context.
+  mcpTools.push(PROJECT_MEMORY_SCHEMA);
 
-  log.info("Tools listed", { exposed: mcpTools.length, cached: toolCache.tools.length, connected: true });
+  // Full project inventory is useful but large, so keep it out of the compact profile.
+  if (CONFIG.toolProfile === "balanced") {
+    mcpTools.push({
+      name: "unreal_get_project_context",
+      description: "Get full project context: C++ class list, source structure, level actors, asset counts. Call when you need project-specific details.",
+      inputSchema: { type: "object", properties: {} },
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    });
+  }
+
+  log.info("Tools listed", { profile: CONFIG.toolProfile, exposed: mcpTools.length, cached: toolCache.tools.length, connected: true });
   return { tools: mcpTools };
 });
 
 // Handle call_tool request
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
+
+  if (name === "unreal_project_memory") {
+    const status = await getConnectionStatus();
+    if (!status.connected) {
+      return { content: [{ type: "text", text: "Unreal is not connected, so the project handoff location is unavailable." }], isError: true };
+    }
+    const action = args?.action || "read";
+    let result;
+    if (action === "read") result = getProjectMemory(status, args?.max_chars);
+    else if (action === "note") result = appendProjectNote(status, args?.text, "AI note");
+    else if (action === "set_summary") result = setProjectSummary(status, args?.text);
+    else if (action === "compact") result = compactProjectMemory(status);
+    else if (action === "register_agent") result = registerAgent(status, args);
+    else if (action === "agent_status") result = getAgentStatus(status);
+    else result = { success: false, error: `Unknown project memory action: ${action}` };
+    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }], isError: !result.success && action !== "agent_status" };
+  }
 
   // Handle UE context request (section-aware, token-efficient)
   if (name === "unreal_get_ue_context") {
@@ -243,7 +314,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
   // Handle status check (lightweight — uses cached tools, no context probe)
   if (name === "unreal_status") {
-    const status = await checkUnrealConnection();
+    const status = await getConnectionStatus();
     if (status.connected) {
       // Use cached tool list instead of re-fetching
       const unrealTools = toolCache.tools;
@@ -255,7 +326,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       const contextCategories = listCategories();
-      const simpleCount = unrealTools.filter(t => classifyTool(t.name) === "simple").length;
+      const directCount = unrealTools.filter(t => isToolExposed(t.name)).length;
 
       const response = {
         connected: true,
@@ -264,8 +335,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         context_categories: contextCategories.length,
         tool_summary: categories,
         total_tools: unrealTools.length,
-        exposed_tools: simpleCount + 4, // simple tools + status + router + context + project_context
-        message: "Unreal Editor connected. All tools operational.",
+        tool_profile: CONFIG.toolProfile,
+        exposed_tools: directCount + (CONFIG.toolProfile === "balanced" ? 5 : 4),
+        external_agent: getAgentStatus(status),
+        message: "Unreal Editor connected. Use unreal_project_memory for the compact shared handoff.",
       };
 
       return {
@@ -309,7 +382,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       return {
         content: [{
           type: "text",
-          text: `Error: Unknown domain "${domain}". Valid domains: blueprint, anim, character, enhanced_input, material, asset`,
+          text: `Error: Unknown domain "${domain}". Valid domains: blueprint, anim, character, enhanced_input, material, asset, sequencer, world, performance, narrative`,
         }],
         isError: true,
       };
@@ -342,6 +415,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       result = await executeUnrealTool(targetTool, unrealArgs);
     }
 
+    if (result.success) recordToolActivity(await getConnectionStatus(), targetTool, unrealArgs, result);
     return formatToolResponse(targetTool, result);
   }
 
@@ -393,6 +467,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   }
 
   const response = formatToolResponse(toolName, result);
+  if (result.success) recordToolActivity(await getConnectionStatus(), toolName, args, result);
   if (CONFIG.injectContext && result.success) {
     log.debug("Injected context for tool", { tool: toolName });
   }

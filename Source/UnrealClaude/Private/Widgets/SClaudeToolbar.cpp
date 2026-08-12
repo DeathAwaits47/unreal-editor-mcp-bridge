@@ -22,6 +22,7 @@ void SClaudeToolbar::Construct(const FArguments& InArgs)
 	OnSelectionModeChanged = InArgs._OnSelectionModeChanged;
 	OnRefreshContext = InArgs._OnRefreshContext;
 	OnRestoreSession = InArgs._OnRestoreSession;
+	OnOpenHandoff = InArgs._OnOpenHandoff;
 	OnNewSession = InArgs._OnNewSession;
 	OnClear = InArgs._OnClear;
 
@@ -104,6 +105,18 @@ void SClaudeToolbar::Construct(const FArguments& InArgs)
 				.OnClicked_Lambda([this]() { OnRestoreSession.ExecuteIfBound(); return FReply::Handled(); })
 				.ToolTipText(LOCTEXT("RestoreContextTip", "Restore previous session context from disk"))
 				.IsEnabled_Lambda([this]() { return bRestoreEnabled.Get(); })
+			]
+
+			// Shared handoff button
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.Padding(4.0f, 0.0f)
+			[
+				SNew(SButton)
+				.Text(LOCTEXT("OpenHandoff", "Open Handoff"))
+				.OnClicked_Lambda([this]() { OnOpenHandoff.ExecuteIfBound(); return FReply::Handled(); })
+				.ToolTipText(LOCTEXT("OpenHandoffTip", "Open the compact shared handoff used by connected AI clients"))
 			]
 
 			// New Session button

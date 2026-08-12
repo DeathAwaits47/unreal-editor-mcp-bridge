@@ -46,7 +46,9 @@ namespace UnrealClaudeConstants
 		constexpr int32 MaxHistorySize = 50;
 
 		/** Maximum number of history exchanges to include in prompt */
-		constexpr int32 MaxHistoryInPrompt = 10;
+		// Keep the embedded runner inexpensive. Durable decisions belong in Docs/AI_HANDOFF.md,
+		// not in an ever-growing replay of the chat.
+		constexpr int32 MaxHistoryInPrompt = 4;
 	}
 
 	namespace Context

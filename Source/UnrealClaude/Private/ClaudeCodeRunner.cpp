@@ -355,7 +355,7 @@ FString FClaudeCodeRunner::BuildCommandLine(const FClaudeRequestConfig& Config)
 
 			FString MCPConfigPath = FPaths::Combine(MCPConfigDir, TEXT("mcp-config.json"));
 			FString MCPConfigContent = FString::Printf(
-				TEXT("{\n  \"mcpServers\": {\n    \"unrealclaude\": {\n      \"command\": \"node\",\n      \"args\": [\"%s\"],\n      \"env\": {\n        \"UNREAL_MCP_URL\": \"http://localhost:%d\"\n      }\n    }\n  }\n}"),
+					TEXT("{\n  \"mcpServers\": {\n    \"unrealclaude\": {\n      \"command\": \"node\",\n      \"args\": [\"%s\"],\n      \"env\": {\n        \"UNREAL_MCP_URL\": \"http://localhost:%d\",\n        \"UNREAL_MCP_TOOL_PROFILE\": \"compact\"\n      }\n    }\n  }\n}"),
 				*MCPBridgePath.Replace(TEXT("\\"), TEXT("/")),
 				UnrealClaudeConstants::MCPServer::DefaultPort
 			);
@@ -700,6 +700,8 @@ void FClaudeCodeRunner::ParseAndEmitNdjsonLine(const FString& JsonLine)
 		JsonObj->TryGetStringField(TEXT("subtype"), Subtype);
 		FString SessionId;
 		JsonObj->TryGetStringField(TEXT("session_id"), SessionId);
+		FString Model;
+		JsonObj->TryGetStringField(TEXT("model"), Model);
 
 		UE_LOG(LogUnrealClaude, Log, TEXT("NDJSON System: subtype=%s, session_id=%s"), *Subtype, *SessionId);
 
@@ -708,6 +710,7 @@ void FClaudeCodeRunner::ParseAndEmitNdjsonLine(const FString& JsonLine)
 			FClaudeStreamEvent Event;
 			Event.Type = EClaudeStreamEventType::SessionInit;
 			Event.SessionId = SessionId;
+			Event.Model = Model;
 			Event.RawJson = JsonLine;
 			FOnClaudeStreamEvent EventDelegate = CurrentConfig.OnStreamEvent;
 			AsyncTask(ENamedThreads::GameThread, [EventDelegate, Event]()
@@ -761,6 +764,9 @@ void FClaudeCodeRunner::ParseAndEmitNdjsonLine(const FString& JsonLine)
 			return;
 		}
 
+		FString AssistantModel;
+		(*MessageObj)->TryGetStringField(TEXT("model"), AssistantModel);
+
 		for (const TSharedPtr<FJsonValue>& ContentValue : *ContentArray)
 		{
 			const TSharedPtr<FJsonObject>* ContentObj;
@@ -797,8 +803,9 @@ void FClaudeCodeRunner::ParseAndEmitNdjsonLine(const FString& JsonLine)
 					if (CurrentConfig.OnStreamEvent.IsBound())
 					{
 						FClaudeStreamEvent Event;
-						Event.Type = EClaudeStreamEventType::TextContent;
-						Event.Text = Text;
+					Event.Type = EClaudeStreamEventType::TextContent;
+					Event.Text = Text;
+					Event.Model = AssistantModel;
 						FOnClaudeStreamEvent EventDelegate = CurrentConfig.OnStreamEvent;
 						AsyncTask(ENamedThreads::GameThread, [EventDelegate, Event]()
 						{
@@ -834,6 +841,7 @@ void FClaudeCodeRunner::ParseAndEmitNdjsonLine(const FString& JsonLine)
 					Event.ToolName = ToolName;
 					Event.ToolCallId = ToolId;
 					Event.ToolInput = ToolInputStr;
+					Event.Model = AssistantModel;
 					Event.RawJson = JsonLine;
 					FOnClaudeStreamEvent EventDelegate = CurrentConfig.OnStreamEvent;
 					AsyncTask(ENamedThreads::GameThread, [EventDelegate, Event]()
@@ -946,6 +954,17 @@ void FClaudeCodeRunner::ParseAndEmitNdjsonLine(const FString& JsonLine)
 		JsonObj->TryGetNumberField(TEXT("num_turns"), NumTurns);
 		double TotalCostUsd = 0.0;
 		JsonObj->TryGetNumberField(TEXT("total_cost_usd"), TotalCostUsd);
+		FString Model;
+		JsonObj->TryGetStringField(TEXT("model"), Model);
+		double InputTokens = 0.0, OutputTokens = 0.0, CacheReadTokens = 0.0, CacheCreationTokens = 0.0;
+		const TSharedPtr<FJsonObject>* UsageObj;
+		if (JsonObj->TryGetObjectField(TEXT("usage"), UsageObj) && UsageObj && UsageObj->IsValid())
+		{
+			(*UsageObj)->TryGetNumberField(TEXT("input_tokens"), InputTokens);
+			(*UsageObj)->TryGetNumberField(TEXT("output_tokens"), OutputTokens);
+			(*UsageObj)->TryGetNumberField(TEXT("cache_read_input_tokens"), CacheReadTokens);
+			(*UsageObj)->TryGetNumberField(TEXT("cache_creation_input_tokens"), CacheCreationTokens);
+		}
 
 		// Check for stop_reason in the result event
 		FString StopReason;
@@ -995,6 +1014,11 @@ void FClaudeCodeRunner::ParseAndEmitNdjsonLine(const FString& JsonLine)
 			Event.DurationMs = static_cast<int32>(DurationMs);
 			Event.NumTurns = static_cast<int32>(NumTurns);
 			Event.TotalCostUsd = static_cast<float>(TotalCostUsd);
+			Event.Model = Model;
+			Event.InputTokens = static_cast<int64>(InputTokens);
+			Event.OutputTokens = static_cast<int64>(OutputTokens);
+			Event.CacheReadTokens = static_cast<int64>(CacheReadTokens);
+			Event.CacheCreationTokens = static_cast<int64>(CacheCreationTokens);
 			Event.RawJson = JsonLine;
 			FOnClaudeStreamEvent EventDelegate = CurrentConfig.OnStreamEvent;
 			AsyncTask(ENamedThreads::GameThread, [EventDelegate, Event]()

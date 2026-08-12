@@ -31,6 +31,7 @@ public:
 		SLATE_EVENT(FOnCheckboxChanged, OnSelectionModeChanged)
 		SLATE_EVENT(FOnToolbarAction, OnRefreshContext)
 		SLATE_EVENT(FOnToolbarAction, OnRestoreSession)
+		SLATE_EVENT(FOnToolbarAction, OnOpenHandoff)
 		SLATE_EVENT(FOnToolbarAction, OnNewSession)
 		SLATE_EVENT(FOnToolbarAction, OnClear)
 	SLATE_END_ARGS()
@@ -48,6 +49,7 @@ private:
 	FOnCheckboxChanged OnSelectionModeChanged;
 	FOnToolbarAction OnRefreshContext;
 	FOnToolbarAction OnRestoreSession;
+	FOnToolbarAction OnOpenHandoff;
 	FOnToolbarAction OnNewSession;
 	FOnToolbarAction OnClear;
 };

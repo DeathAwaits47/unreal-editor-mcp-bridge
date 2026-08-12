@@ -1,6 +1,6 @@
 {
   "name": "ue5-mcp-server",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "MCP server for Unreal Engine 5 editor integration - works with Claude Code, Claude Desktop, and any MCP-compatible AI client",
   "main": "index.js",
   "type": "module",
@@ -22,7 +22,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/Natfii/unrealclaude-mcp-bridge.git"
+    "url": "https://github.com/DeathAwaits47/unreal-editor-mcp-bridge.git"
   },
   "license": "MIT",
   "dependencies": {

@@ -73,6 +73,15 @@ struct UNREALCLAUDE_API FClaudeStreamEvent
 	/** Total cost in USD (for Result events) */
 	float TotalCostUsd = 0.0f;
 
+	/** Model reported by the Claude CLI stream, when available. */
+	FString Model;
+
+	/** Token accounting reported by the CLI stream, when available. These are usage totals, not quota remaining. */
+	int64 InputTokens = 0;
+	int64 OutputTokens = 0;
+	int64 CacheReadTokens = 0;
+	int64 CacheCreationTokens = 0;
+
 	/** Result text (for Result events) */
 	FString ResultText;
 

@@ -45,6 +45,12 @@ The Control Rig operation requires the caller to inspect the sequence first and 
 
 This edition has been compile-validated with Unreal Engine 5.7 on Windows. Runtime edits should first be tested on a duplicate Level Sequence or a version-controlled project.
 
+## Efficient shared AI context
+
+The bridge stays loaded for as long as Unreal is open. It uses the **compact** tool profile by default, exposing a small direct tool set plus one routed editor tool instead of loading every operation schema into every agent conversation. Tool definitions are cached for five minutes by default, and ordinary text responses are capped at 12,000 characters so broad listings do not consume a whole conversation. Set `UNREAL_MCP_TOOL_PROFILE=balanced`, `MCP_TOOL_CACHE_TTL_MS`, or `MCP_MAX_RESPONSE_CHARS=0` only when a client genuinely needs the expanded/unbounded behaviour.
+
+Use `unreal_project_memory` to read or update `Docs/AI_HANDOFF.md`. It is a short, shared handoff for Codex, Claude, and other MCP clients: a current milestone summary plus recent bridge activity. Older activity is archived automatically, so it does not become a growing transcript. A client may call `register_agent` with its known model name; the Unreal panel then shows that client and model. The bridge deliberately does **not** invent a quota meter—remaining usage appears only when the client explicitly provides it.
+
 ## Quick Sequencer workflow
 
 1. Call `sequencer` with `operation: inspect` and a Level Sequence path.

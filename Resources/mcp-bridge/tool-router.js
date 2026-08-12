@@ -56,6 +56,10 @@ export const DOMAIN_TOOL_MAP = {
   enhanced_input: "enhanced_input",
   material: "material",
   asset: "asset",
+  sequencer: "sequencer",
+  world: "world_builder",
+  performance: "performance",
+  narrative: "narrative_trigger",
 };
 
 // Blueprint operations that route to "blueprint_query" instead of "blueprint_modify"
@@ -246,4 +250,10 @@ export const ROUTER_TOOL_SCHEMA = {
     idempotentHint: false,
     openWorldHint: false,
   },
+};
+
+/** A deliberately short schema for normal work. Full detail is still available via the balanced profile. */
+export const COMPACT_ROUTER_TOOL_SCHEMA = {
+  ...ROUTER_TOOL_SCHEMA,
+  description: "One compact Unreal editor router. Choose a domain and operation; pass domain-specific fields in params. Domains: blueprint, anim, character, enhanced_input, material, asset, sequencer, world, performance, narrative. Use query/inspect operations before edits when unsure.",
 };

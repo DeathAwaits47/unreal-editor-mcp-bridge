@@ -13,6 +13,7 @@
 #include "Dom/JsonObject.h"
 #include "Serialization/JsonSerializer.h"
 #include "Serialization/JsonWriter.h"
+#include "Misc/Paths.h"
 
 FUnrealClaudeMCPServer::FUnrealClaudeMCPServer()
 	: bIsRunning(false)
@@ -279,6 +280,9 @@ bool FUnrealClaudeMCPServer::HandleStatus(const FHttpServerRequest& Request, con
 
 	ResponseJson->SetStringField(TEXT("projectName"), FApp::GetProjectName());
 	ResponseJson->SetStringField(TEXT("engineVersion"), FEngineVersion::Current().ToString());
+	// External MCP clients use this only to locate the compact shared handoff.
+	ResponseJson->SetStringField(TEXT("projectDir"), FPaths::ConvertRelativePathToFull(FPaths::ProjectDir()));
+	ResponseJson->SetStringField(TEXT("projectPath"), FPaths::ConvertRelativePathToFull(FPaths::GetProjectFilePath()));
 
 	FString JsonString;
 	TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&JsonString);

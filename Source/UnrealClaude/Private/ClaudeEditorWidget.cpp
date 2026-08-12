@@ -28,6 +28,12 @@
 #include "Styling/CoreStyle.h"
 #include "Framework/Application/SlateApplication.h"
 #include "HAL/PlatformApplicationMisc.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "HAL/FileManager.h"
+#include "HAL/PlatformProcess.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
 
 #define LOCTEXT_NAMESPACE "UnrealClaude"
 
@@ -367,6 +373,7 @@ TSharedRef<SWidget> SClaudeEditorWidget::BuildToolbar()
 			})
 		.OnRefreshContext_Lambda([this]() { RefreshProjectContext(); })
 		.OnRestoreSession_Lambda([this]() { RestoreSession(); })
+		.OnOpenHandoff_Lambda([this]() { OpenSharedHandoff(); })
 		.OnNewSession_Lambda([this]() { NewSession(); })
 		.OnClear_Lambda([this]() { ClearChat(); });
 }
@@ -415,6 +422,17 @@ TSharedRef<SWidget> SClaudeEditorWidget::BuildStatusBar()
 			+ SHorizontalBox::Slot()
 			.AutoWidth()
 			.VAlign(VAlign_Center)
+			.Padding(FMargin(16.0f, 0.0f, 0.0f, 0.0f))
+			[
+				SNew(STextBlock)
+				.Text(this, &SClaudeEditorWidget::GetBridgeClientText)
+				.TextStyle(FAppStyle::Get(), "SmallText")
+				.ColorAndOpacity(FSlateColor(FLinearColor(0.45f, 0.65f, 0.75f)))
+			]
+
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
 			[
 				SNew(STextBlock)
 				.Text(this, &SClaudeEditorWidget::GetStatusText)
@@ -450,6 +468,38 @@ TSharedRef<SWidget> SClaudeEditorWidget::BuildStatusBar()
 				.ColorAndOpacity(FSlateColor(FLinearColor(0.5f, 0.5f, 0.5f)))
 			]
 		];
+}
+
+FText SClaudeEditorWidget::GetBridgeClientText() const
+{
+	const double Now = FPlatformTime::Seconds();
+	if (Now >= NextBridgeClientStatusRefresh)
+	{
+		NextBridgeClientStatusRefresh = Now + 2.0;
+		FString ClientText = TEXT("MCP: no external client registered");
+		const FString AgentPath = FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("UnrealClaude"), TEXT("mcp-agent-session.json"));
+		FString JsonText;
+		if (FFileHelper::LoadFileToString(JsonText, *AgentPath))
+		{
+			TSharedPtr<FJsonObject> Json;
+			TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(JsonText);
+			if (FJsonSerializer::Deserialize(Reader, Json) && Json.IsValid())
+			{
+				FString Client, Model, Remaining;
+				Json->TryGetStringField(TEXT("client"), Client);
+				Json->TryGetStringField(TEXT("model"), Model);
+				Json->TryGetStringField(TEXT("usage_remaining"), Remaining);
+				ClientText = FString::Printf(TEXT("MCP: %s | %s | left: %s"), *Client, *Model, *Remaining);
+			}
+		}
+		FString Runner = LastRunnerModel.IsEmpty() ? TEXT("Runner: Claude Code (CLI default)") : FString::Printf(TEXT("Runner: %s"), *LastRunnerModel);
+		if (LastInputTokens > 0 || LastOutputTokens > 0)
+		{
+			Runner += FString::Printf(TEXT(" | last: %lld in / %lld out"), LastInputTokens, LastOutputTokens);
+		}
+		CachedBridgeClientStatus = FString::Printf(TEXT("%s | %s"), *Runner, *ClientText);
+	}
+	return FText::FromString(CachedBridgeClientStatus);
 }
 
 void SClaudeEditorWidget::AddMessage(const FString& Message, bool bIsUser)
@@ -714,6 +764,19 @@ void SClaudeEditorWidget::RestoreSession()
 	}
 }
 
+void SClaudeEditorWidget::OpenSharedHandoff()
+{
+	const FString HandoffPath = FPaths::Combine(FPaths::ProjectDir(), TEXT("Docs"), TEXT("AI_HANDOFF.md"));
+	IFileManager::Get().MakeDirectory(*FPaths::GetPath(HandoffPath), true);
+	if (!FPaths::FileExists(HandoffPath))
+	{
+		const FString InitialContents = TEXT("# AI Project Handoff\n\n> Maintained by the Unreal MCP bridge. Keep this compact: decisions, current work, and handoff notes — not chat transcripts.\n\n## Current summary\n- No summary has been recorded yet.\n\n## Recent bridge activity\n- Handoff created from the Unreal panel.\n");
+		FFileHelper::SaveStringToFile(InitialContents, *HandoffPath);
+	}
+	FPlatformProcess::LaunchFileInDefaultExternalApplication(*HandoffPath);
+	AddMessage(FString::Printf(TEXT("Opened shared handoff: %s"), *HandoffPath), false);
+}
+
 void SClaudeEditorWidget::NewSession()
 {
 	if (ChatMessagesBox.IsValid())
@@ -820,6 +883,8 @@ void SClaudeEditorWidget::ResetStreamingState()
 	ToolGroupCallIds.Empty();
 	StreamingToolCallCount = 0;
 	LastResultStats.Empty();
+	LastInputTokens = 0;
+	LastOutputTokens = 0;
 }
 
 void SClaudeEditorWidget::StartStreamingResponse()
@@ -949,6 +1014,10 @@ void SClaudeEditorWidget::StartStreamingResponse()
 	}
 void SClaudeEditorWidget::OnClaudeStreamEvent(const FClaudeStreamEvent& Event)
 {
+	if (!Event.Model.IsEmpty())
+	{
+		LastRunnerModel = Event.Model;
+	}
 	switch (Event.Type)
 	{
 	case EClaudeStreamEventType::SessionInit:
@@ -1272,6 +1341,13 @@ void SClaudeEditorWidget::HandleResultEvent(const FClaudeStreamEvent& Event)
 	if (Event.TotalCostUsd > 0.0f)
 	{
 		StatsText += FString::Printf(TEXT(" | $%.4f"), Event.TotalCostUsd);
+	}
+
+	LastInputTokens = Event.InputTokens;
+	LastOutputTokens = Event.OutputTokens;
+	if (Event.InputTokens > 0 || Event.OutputTokens > 0)
+	{
+		StatsText += FString::Printf(TEXT(" | %lld in / %lld out tokens"), Event.InputTokens, Event.OutputTokens);
 	}
 
 	LastResultStats = StatsText;

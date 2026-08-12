@@ -133,6 +133,9 @@ private:
 	/** Restore previous session context */
 	void RestoreSession();
 
+	/** Open the compact project handoff shared through the MCP bridge. */
+	void OpenSharedHandoff();
+
 	/** Start a new session (clear history and saved session) */
 	void NewSession();
 	
@@ -144,6 +147,9 @@ private:
 	
 	/** Get status text */
 	FText GetStatusText() const;
+
+	/** Show embedded runner model plus any external MCP client that has registered itself. */
+	FText GetBridgeClientText() const;
 	
 	/** Get status color */
 	FSlateColor GetStatusColor() const;
@@ -178,6 +184,15 @@ private:
 
 	/** Final stats from the Result event (persists after streaming ends until next request) */
 	FString LastResultStats;
+
+	/** Last model and usage totals reported by the embedded Claude Code runner. */
+	FString LastRunnerModel;
+	int64 LastInputTokens = 0;
+	int64 LastOutputTokens = 0;
+
+	/** Cached to avoid touching disk every Slate tick. */
+	mutable FString CachedBridgeClientStatus;
+	mutable double NextBridgeClientStatusRefresh = 0.0;
 
 	/** Accumulated streaming response */
 	FString StreamingResponse;
@@ -236,10 +251,11 @@ private:
 	TArray<FString> ToolGroupCallIds;
 
 	/** Include UE5.7 context in prompts */
-	bool bIncludeUE57Context = true;
+	// Targeted MCP queries and the shared handoff are cheaper than injecting broad docs on every prompt.
+	bool bIncludeUE57Context = false;
 
 	/** Include project context in prompts */
-	bool bIncludeProjectContext = true;
+	bool bIncludeProjectContext = false;
 
 	/** Selection mode for Claude responses (true = plain text for copying) */
 	bool bSelectionMode = false;

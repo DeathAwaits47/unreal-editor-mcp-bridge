@@ -53,6 +53,16 @@ The goal is to speed up the tedious parts of game development so you can focus o
 
 ## Quick Start
 
+### Context-efficient default
+
+The bridge defaults to `UNREAL_MCP_TOOL_PROFILE=compact`: a small direct tool set, one routed editor tool, and the shared `unreal_project_memory` handoff tool. This reduces tool-schema and broad-output context usage for Codex, Claude Code, and other MCP clients. Tool definitions are cached for five minutes; ordinary text results are capped at 12,000 characters. Set `MCP_MAX_RESPONSE_CHARS=0` only when you explicitly need an unbounded response.
+
+### Keep client context compact
+
+The bridge defaults to `UNREAL_MCP_TOOL_PROFILE=compact`. This exposes the common inspection tools, one compact `unreal_ue` router, targeted UE documentation, and `unreal_project_memory`; it avoids re-sending a large operation catalogue to every AI client. Set the environment variable to `balanced` only when an older client needs the expanded direct tool list.
+
+At the beginning of a work session, call `unreal_project_memory` with `action: "read"`. At a clean milestone, call it with `action: "set_summary"` and a short factual handoff. The bridge automatically records successful editing operations and retains only recent activity. A client can call `register_agent` with its actual `client` and `model`; exact remaining credits are intentionally shown only if that client exposes them.
+
 ### 1. Install
 
 ```bash
