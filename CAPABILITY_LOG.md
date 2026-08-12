@@ -31,6 +31,14 @@ Categories:
 
 ## 🔴 Open (fix these)
 
+### workflow — bridge tools unavailable if Claude Code started before Unreal connected
+- Status: OPEN
+- Category: environment
+- Date / Agent: 2026-08-12 / CLAUDE
+- Attempted: drive live tests after opening Still Here mid-session (Unreal was closed when Claude Code launched).
+- Result: `unreal_status` reports connected (4 tools exposed server-side), but the ONLY callable `mcp__unrealclaude__*` tool this session is `unreal_status`. The router + anim/widget/material/etc. tools are not registered, because the MCP client enumerates a server's tools once at Claude Code startup — a server that connects later (or exposes more tools after connecting) is not re-scanned.
+- Fix idea (workaround): **start Unreal FIRST, then launch Claude Code** — or restart Claude Code after Unreal is connected. Longer-term: nothing the plugin can do (client-side MCP limitation); document it in the README setup steps so users always launch in that order.
+
 ### blueprint.add_node — EventGraph node factory only supports ~11 primitive node types
 - Status: OPEN — **HIGH priority (this is the other half of the gun gameplay port)**
 - Category: bridge-node-factory
