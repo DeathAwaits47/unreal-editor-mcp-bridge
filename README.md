@@ -1,6 +1,8 @@
-# UnrealClaude Sequencer & World Bridge
+# Unreal Editor MCP Bridge
 
 An unofficial Unreal Engine 5 editor-plugin derivative that extends [Natfii's UnrealClaude](https://github.com/Natfii/UnrealClaude) with careful, MCP-driven Sequencer authoring and environment building.
+
+It works with any MCP-compatible AI client — including Codex, Claude, and future clients — rather than being tied to one assistant.
 
 It is designed for project-local use: the AI can inspect the active sequence and make narrow, explicit edits without guessing which actor, rig, control, or asset you intended.
 
