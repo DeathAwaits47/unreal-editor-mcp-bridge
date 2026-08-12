@@ -66,8 +66,16 @@ This edition has been compile-validated with Unreal Engine 5.7 on Windows. Runti
 
 1. Call `performance` with `operation: "scene_audit"` while the intended level is open. Start with the returned top meshes, shadow-caster count, movable lights, and instancing data; do not mass-disable shadows without checking the gameplay camera.
 2. Call `performance` with `operation: "material_audit"` and an explicit material path (for example `/Game/Materials/M_Forest.M_Forest`). Treat its results as a shortlist for the Material Editor's **Stats** and **Shader Complexity** views.
-3. Start PIE or a packaged build and call `runtime_profile_command` with `stat_unit` and then `stat_gpu`. Those timings—not editor triangle counts—decide what needs optimizing.
-4. For a deeper capture, call `start_trace`, play through the expensive area, then call `stop_trace` and inspect the trace in Unreal Insights.
+3. Start PIE and call `performance` with `operation: "pie_capture"`, `capture_action: "start"`. Play normally through the expensive section, then call the same tool with `capture_action: "stop"`. The bridge records frame, game-thread, render-thread, and GPU samples continuously and saves a JSON report under `Saved/MCPPerformanceCaptures`.
+4. Use `runtime_profile_command` with `stat_unit` and then `stat_gpu` when the capture points to a bottleneck. Those timings—not editor triangle counts—decide what needs optimizing.
+5. For a deeper capture, call `start_trace`, play through the expensive area, then call `stop_trace` and inspect the trace in Unreal Insights.
+
+## Narrative / subtitle trigger workflow
+
+1. Call `narrative_trigger` with `operation: "list"` to read every placed `VoiceTrigger`, `RadioVoiceTrigger`, or `NarrativeTrigger` instance, including its assigned audio assets and exposed subtitle fields.
+2. Call `subtitle_audit` before a subtitle pass. It reports triggers missing English text, Romanian text, a sound, or a per-instance subtitle enable flag.
+3. Call `update_subtitles` with one exact `actor_name` plus `english`, `romanian`, `speaker`, `show_subtitle`, `show_speaker`, and/or `duration`. Only that placed actor is changed; Blueprint defaults and sibling trigger instances are untouched.
+4. Run `read` on a trigger after the update to verify the actual Details-panel values before testing in PIE.
 
 The audit is intentionally diagnostic. It will not alter scalability settings, shaders, Nanite, shadows, materials, or foliage automatically. That keeps optimization choices reviewable and prevents an AI from "fixing" frame time by silently damaging the game's look.
 

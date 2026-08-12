@@ -72,6 +72,9 @@ public class UnrealClaude : ModuleRules
 				"ControlRig",
 				"ControlRigEditor",
 				"Landscape",
+				// PIE performance capture
+				"RenderCore",
+				"RHI",
 				// Enhanced Input
 				"EnhancedInput"
 			}
