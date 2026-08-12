@@ -1,5 +1,7 @@
 # Support
 
-If this bridge saves you time, consider supporting its maintenance. A maintainer-owned Ko-fi link will be added here before public release.
+If this bridge saves you time, consider supporting its maintenance:
 
-Do not send support to an unofficial or lookalike link.
+[Support DeathAwaits47 on Ko-fi](https://ko-fi.com/deathawaits47)
+
+Please use only the link above; it is the maintainer-controlled support page for this project.
