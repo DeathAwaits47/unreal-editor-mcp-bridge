@@ -112,7 +112,12 @@ public:
 			"State Machine Enumeration (NEW):\n"
 			"- 'get_states': List all states in a state machine (params: state_machine)\n"
 			"- 'get_transitions': List all transitions in a state machine (params: state_machine)\n"
-			"- 'get_conduits': List all conduits (logic-only states) in a state machine (params: state_machine)"
+			"- 'get_conduits': List all conduits (logic-only states) in a state machine (params: state_machine)\n\n"
+				"Top-level AnimGraph pose nodes (NEW — Layered Blend / Cached Pose / Blend Poses):\n"
+				"- 'list_anim_graph_nodes': List every node in the main AnimGraph with GUID, pins, cache names, Layered-Blend branch-filter bones\n"
+				"- 'add_anim_graph_node': Create a pose node (node_type = use_cached_pose|save_cached_pose|layered_bone_blend|blend_list_by_enum...; optional cache_name). Returns node_id (GUID)\n"
+				"- 'set_anim_node_property': Set a pose node (node_id + bone_name/blend_depth/layer_index/mesh_space_rotation_blend, or cache_name, or property+value)\n"
+				"- 'connect_anim_pose': Wire a pose output to a named input pin (from_node, to_node, optional from_pin, to_pin e.g. 'BlendPose_3')"
 		);
 		Info.Parameters = {
 			FMCPToolParameter(TEXT("blueprint_path"), TEXT("string"), TEXT("Path to the Animation Blueprint (e.g., '/Game/Characters/ABP_Character')"), true),
@@ -145,7 +150,18 @@ public:
 			FMCPToolParameter(TEXT("pin_name"), TEXT("string"), TEXT("Pin name to set value (for set_pin_default_value)"), false),
 			FMCPToolParameter(TEXT("rules"), TEXT("array"), TEXT("Array of condition rules for setup_transition_conditions. Each rule: {match: {from, to}, conditions: [...], logic: 'AND'|'OR'}"), false),
 			FMCPToolParameter(TEXT("variable_type"), TEXT("string"), TEXT("Variable pin type for add_variable (e.g., 'float', 'int', 'bool', 'string', 'name', 'vector', 'rotator')"), false),
-			FMCPToolParameter(TEXT("default_value"), TEXT("string"), TEXT("Default value for add_variable / set_variable_default (string-encoded)"), false)
+			FMCPToolParameter(TEXT("default_value"), TEXT("string"), TEXT("Default value for add_variable / set_variable_default (string-encoded)"), false),
+				FMCPToolParameter(TEXT("cache_name"), TEXT("string"), TEXT("Cached-pose name for add/set of use_cached_pose or save_cached_pose"), false),
+				FMCPToolParameter(TEXT("bone_name"), TEXT("string"), TEXT("Branch-filter bone for set_anim_node_property on a layered_bone_blend (e.g. 'spine_01')"), false),
+				FMCPToolParameter(TEXT("blend_depth"), TEXT("number"), TEXT("Branch-filter blend depth (layered_bone_blend)"), false),
+				FMCPToolParameter(TEXT("layer_index"), TEXT("number"), TEXT("Layered-blend layer index to edit (default 0)"), false),
+				FMCPToolParameter(TEXT("mesh_space_rotation_blend"), TEXT("boolean"), TEXT("Layered-blend Mesh Space Rotation Blend flag"), false),
+				FMCPToolParameter(TEXT("property"), TEXT("string"), TEXT("Generic anim-node inner-struct property name for set_anim_node_property fallback"), false),
+				FMCPToolParameter(TEXT("value"), TEXT("string"), TEXT("Value for the generic 'property' fallback (string-encoded)"), false),
+				FMCPToolParameter(TEXT("from_node"), TEXT("string"), TEXT("Source node GUID for connect_anim_pose"), false),
+				FMCPToolParameter(TEXT("to_node"), TEXT("string"), TEXT("Destination node GUID for connect_anim_pose"), false),
+				FMCPToolParameter(TEXT("from_pin"), TEXT("string"), TEXT("Source output pin name (default: the node's pose output)"), false),
+				FMCPToolParameter(TEXT("to_pin"), TEXT("string"), TEXT("Destination input pin name, e.g. 'BlendPose_3' or 'Base Pose'"), false)
 		};
 		Info.Annotations = FMCPToolAnnotations::Modifying();
 		return Info;
@@ -189,6 +205,12 @@ private:
 	FMCPToolResult HandleGetStates(const FString& BlueprintPath, const TSharedRef<FJsonObject>& Params);
 	FMCPToolResult HandleGetTransitions(const FString& BlueprintPath, const TSharedRef<FJsonObject>& Params);
 	FMCPToolResult HandleGetConduits(const FString& BlueprintPath, const TSharedRef<FJsonObject>& Params);
+
+	// Top-level AnimGraph pose-node ops
+	FMCPToolResult HandleListAnimGraphNodes(const FString& BlueprintPath, const TSharedRef<FJsonObject>& Params);
+	FMCPToolResult HandleAddAnimGraphNode(const FString& BlueprintPath, const TSharedRef<FJsonObject>& Params);
+	FMCPToolResult HandleSetAnimNodeProperty(const FString& BlueprintPath, const TSharedRef<FJsonObject>& Params);
+	FMCPToolResult HandleConnectAnimPose(const FString& BlueprintPath, const TSharedRef<FJsonObject>& Params);
 
 	FVector2D ExtractPosition(const TSharedRef<FJsonObject>& Params);
 

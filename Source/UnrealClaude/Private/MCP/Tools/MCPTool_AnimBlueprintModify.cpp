@@ -3,6 +3,7 @@
 #include "MCPTool_AnimBlueprintModify.h"
 #include "AnimationBlueprintUtils.h"
 #include "AnimGraphEditor.h"
+#include "AnimGraphPoseFactory.h"
 #include "AnimGraphNode_StateMachine.h"
 #include "AnimStateConduitNode.h"
 #include "AnimationStateMachineGraph.h"
@@ -188,6 +189,22 @@ FMCPToolResult FMCPTool_AnimBlueprintModify::Execute(const TSharedRef<FJsonObjec
 	else if (Operation == TEXT("get_conduits"))
 	{
 		return HandleGetConduits(BlueprintPath, Params);
+	}
+	else if (Operation == TEXT("list_anim_graph_nodes"))
+	{
+		return HandleListAnimGraphNodes(BlueprintPath, Params);
+	}
+	else if (Operation == TEXT("add_anim_graph_node"))
+	{
+		return HandleAddAnimGraphNode(BlueprintPath, Params);
+	}
+	else if (Operation == TEXT("set_anim_node_property"))
+	{
+		return HandleSetAnimNodeProperty(BlueprintPath, Params);
+	}
+	else if (Operation == TEXT("connect_anim_pose"))
+	{
+		return HandleConnectAnimPose(BlueprintPath, Params);
 	}
 
 	return FMCPToolResult::Error(FString::Printf(TEXT("Unknown operation: %s"), *Operation));
@@ -1509,4 +1526,118 @@ FMCPToolResult FMCPTool_AnimBlueprintModify::HandleGetConduits(
 	return FMCPToolResult::Success(
 		FString::Printf(TEXT("Found %d conduit(s) in '%s'"), Conduits.Num(), *StateMachineName),
 		Result);
+}
+
+// ============================================================================
+// Top-level AnimGraph pose-node operations (Layered Blend / Cached Pose / Blend Poses)
+// ============================================================================
+
+FMCPToolResult FMCPTool_AnimBlueprintModify::HandleListAnimGraphNodes(const FString& BlueprintPath, const TSharedRef<FJsonObject>& Params)
+{
+	UAnimBlueprint* AnimBP = nullptr;
+	if (auto ErrorResult = LoadAnimBlueprintOrError(BlueprintPath, AnimBP))
+	{
+		return ErrorResult.GetValue();
+	}
+
+	FString Error;
+	TSharedPtr<FJsonObject> Data = FAnimGraphPoseFactory::ListNodes(AnimBP, Error);
+	if (!Data.IsValid())
+	{
+		return FMCPToolResult::Error(Error);
+	}
+	return FMCPToolResult::Success(
+		FString::Printf(TEXT("Listed %d AnimGraph node(s)"), static_cast<int32>(Data->GetNumberField(TEXT("count")))), Data);
+}
+
+FMCPToolResult FMCPTool_AnimBlueprintModify::HandleAddAnimGraphNode(const FString& BlueprintPath, const TSharedRef<FJsonObject>& Params)
+{
+	UAnimBlueprint* AnimBP = nullptr;
+	if (auto ErrorResult = LoadAnimBlueprintOrError(BlueprintPath, AnimBP))
+	{
+		return ErrorResult.GetValue();
+	}
+
+	FString NodeType;
+	TOptional<FMCPToolResult> Error;
+	if (!ExtractRequiredString(Params, TEXT("node_type"), NodeType, Error))
+	{
+		return Error.GetValue();
+	}
+
+	FString OutNodeId, OutError;
+	UEdGraphNode* Node = FAnimGraphPoseFactory::CreateNode(AnimBP, NodeType, Params, OutNodeId, OutError);
+	if (!Node)
+	{
+		return FMCPToolResult::Error(OutError);
+	}
+
+	TSharedPtr<FJsonObject> Data = MakeShared<FJsonObject>();
+	Data->SetStringField(TEXT("node_id"), OutNodeId);
+	Data->SetStringField(TEXT("class"), Node->GetClass()->GetName());
+	FMCPToolResult Result = FMCPToolResult::Success(FString::Printf(TEXT("Added AnimGraph node '%s' (%s)"), *OutNodeId, *NodeType), Data);
+	// OutError is a non-fatal note when e.g. a cached-pose reference could not be resolved yet.
+	if (!OutError.IsEmpty()) Result.Warnings.Add(OutError);
+	return Result;
+}
+
+FMCPToolResult FMCPTool_AnimBlueprintModify::HandleSetAnimNodeProperty(const FString& BlueprintPath, const TSharedRef<FJsonObject>& Params)
+{
+	UAnimBlueprint* AnimBP = nullptr;
+	if (auto ErrorResult = LoadAnimBlueprintOrError(BlueprintPath, AnimBP))
+	{
+		return ErrorResult.GetValue();
+	}
+
+	FString NodeId;
+	TOptional<FMCPToolResult> Error;
+	if (!ExtractRequiredString(Params, TEXT("node_id"), NodeId, Error))
+	{
+		return Error.GetValue();
+	}
+
+	FString OutError;
+	if (!FAnimGraphPoseFactory::SetNodeProperty(AnimBP, NodeId, Params, OutError))
+	{
+		return FMCPToolResult::Error(OutError);
+	}
+
+	TSharedPtr<FJsonObject> Data = MakeShared<FJsonObject>();
+	Data->SetStringField(TEXT("node_id"), NodeId);
+	return FMCPToolResult::Success(FString::Printf(TEXT("Updated AnimGraph node '%s'"), *NodeId), Data);
+}
+
+FMCPToolResult FMCPTool_AnimBlueprintModify::HandleConnectAnimPose(const FString& BlueprintPath, const TSharedRef<FJsonObject>& Params)
+{
+	UAnimBlueprint* AnimBP = nullptr;
+	if (auto ErrorResult = LoadAnimBlueprintOrError(BlueprintPath, AnimBP))
+	{
+		return ErrorResult.GetValue();
+	}
+
+	FString FromNode, ToNode;
+	TOptional<FMCPToolResult> Error;
+	if (!ExtractRequiredString(Params, TEXT("from_node"), FromNode, Error))
+	{
+		return Error.GetValue();
+	}
+	if (!ExtractRequiredString(Params, TEXT("to_node"), ToNode, Error))
+	{
+		return Error.GetValue();
+	}
+
+	const FString FromPin = ExtractOptionalString(Params, TEXT("from_pin"));
+	const FString ToPin = ExtractOptionalString(Params, TEXT("to_pin"));
+
+	FString OutError;
+	if (!FAnimGraphPoseFactory::ConnectPose(AnimBP, FromNode, FromPin, ToNode, ToPin, OutError))
+	{
+		return FMCPToolResult::Error(OutError);
+	}
+
+	TSharedPtr<FJsonObject> Data = MakeShared<FJsonObject>();
+	Data->SetStringField(TEXT("from_node"), FromNode);
+	Data->SetStringField(TEXT("to_node"), ToNode);
+	Data->SetStringField(TEXT("to_pin"), ToPin.IsEmpty() ? TEXT("(default pose input)") : ToPin);
+	return FMCPToolResult::Success(FString::Printf(TEXT("Connected pose %s -> %s"), *FromNode, *ToNode), Data);
 }
