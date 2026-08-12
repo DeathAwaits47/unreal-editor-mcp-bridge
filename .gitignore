@@ -1,0 +1,18 @@
+# Unreal generated output
+Binaries/
+Intermediate/
+Saved/
+DerivedDataCache/
+
+# IDE and local machine files
+.vs/
+.idea/
+*.sln
+*.VC.db
+*.log
+
+# MCP bridge local dependencies and secrets
+Resources/mcp-bridge/node_modules/
+Resources/mcp-bridge/.env
+Resources/mcp-bridge/.env.local
+Resources/mcp-bridge/.env.*.local
